@@ -1,0 +1,7 @@
+.idea/*
+*__pycache__*
+env/
+*egg*
+*vscode*
+experiments/
+setup.py

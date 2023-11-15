@@ -1,0 +1,57 @@
+embed:
+  a_embed_dim: 10
+  batch_size: 512
+  continuous_learning: false
+  embed_module: SASEmbeddingModule
+  learning_rate: 0.01
+  load_emb_path: None
+  pre_train:
+    batch_size: 256
+    fine_tune_iters: 50
+    freeze_first_layer: false
+    is_on: false
+    samples: 200000
+    train_iters: 300
+  s_embed_dim: 64
+  save_pretrain_embeddings: true
+  train_iters: 5
+  train_on_n_samples: 3000
+  update_every_n_steps: 3000
+  use_full_buffer: false
+env:
+  action_space_type: continuous
+  env_fn: Ant-v2
+  own_env: false
+  state_space_type: continuous
+logger:
+  log_every_n_epochs: 1
+  output_dir: experiments/VPG
+model:
+  ac_fn: VPGActorCriticEmbed
+  config:
+    hidden_sizes_actor:
+      - 128
+      - 128
+    hidden_sizes_critic:
+      - 128
+      - 128
+    std_dev_actor: 0.6
+processes: 15
+seed: 12345
+threads: 45
+train_fn: PPO_embed
+training:
+  batch_size: 512
+  buffer_size: 3000
+  clip_ratio: 0.2
+  gamma: 0.99
+  lam: 0.97
+  learning_rate_pi: 0.001
+  learning_rate_v: 0.001
+  max_ep_len: None
+  num_epochs: 2000
+  num_iters_pi: 4
+  num_iters_v: 8
+  save_freq: 500
+  steps_per_epoch: 3000
+  target_kl: 0.1

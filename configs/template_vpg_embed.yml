@@ -1,0 +1,72 @@
+seed: 12345
+env:
+  own_env: True
+  env_fn: DiscreteGridWorld
+  action_space_type: discreteNN
+  state_space_type: discrete
+  env_config:
+    max_steps: 150
+    max_step_length: 0.2
+    num_actuators: 5
+    num_bins: 30
+    feature_dict:
+      obstacles:
+        - x: 0
+          y: 15
+          x2: 15
+          y2: 16
+        - x: 14
+          y: 15
+          x2: 15
+          y2: 20
+      goals:
+        - coords:
+            x: 5
+            y: 25
+            x2: 7
+            y2: 27
+          reward: 1
+model:
+  ac_fn: VPGActorCriticEmbed
+  config:
+    hidden_sizes_actor: [32, 32]
+    std_dev_actor: 0.5
+    hidden_sizes_critic: [32, 32]
+embed:
+  # Choose one of the embedding modules in embedding_modules
+  embed_module: SASEmbeddingModule
+  continuous_learning: False
+  learning_rate: 0.01
+  train_iters: 5
+  batch_size: 64
+  # Embedding dimensionality for the state and action
+  s_embed_dim: 8
+  a_embed_dim: 2
+  update_every_n_steps: 100
+  use_full_buffer: False
+  train_on_n_samples: 1000
+  save_pretrain_embeddings: True
+  load_emb_path: None
+  # The embedding module can be pre-trained using the below config
+  pre_train:
+    is_on: True
+    batch_size: 64
+    train_iters: 50
+    samples: 300 # 20_000
+training:
+  num_epochs: 30 # 5000
+  batch_size: 64
+  steps_per_epoch: 300
+  buffer_size: 1000
+  gamma: 0.99
+  learning_rate_pi: 0.0003
+  learning_rate_v: 0.001
+  num_iters_pi: 3
+  num_iters_v: 15
+  lam: 0.97
+  max_ep_len: 150
+  save_freq: 100
+  target_kl: 0.00000001
+logger:
+  log_every_n_epochs: 5
+  output_dir: "experiments/VPG/test"

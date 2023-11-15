@@ -1,0 +1,77 @@
+threads: 2
+processes: 1
+seed: 123456
+env:
+  own_env: True
+  env_fn: DiscreteGridWorld
+  action_space_type: discreteNN
+  state_space_type: discrete
+  env_config:
+    max_steps: 150
+    max_step_length: 0.2
+    num_actuators: 9
+    num_bins: 40
+    feature_dict:
+      obstacles:
+        - x: 0
+          y: 15
+          x2: 20
+          y2: 16
+        - x: 20
+          y: 15
+          x2: 21
+          y2: 30
+      goals:
+        - coords:
+            x: 5
+            y: 25
+            x2: 7
+            y2: 27
+          reward: 1
+model:
+  ac_fn: PPOActorCriticEmbed
+  config:
+    hidden_sizes_actor: [64, 64]
+    hidden_sizes_critic: [64, 64]
+    std_dev_actor: 0.8
+embed:
+  # Choose one of the embedding modules in embedding_modules
+  embed_module: SASEmbeddingModule
+  continuous_learning: False
+  learning_rate: 0.01
+  train_iters: 1
+  batch_size: 64
+  # Embedding dimensionality for the state and action
+  s_embed_dim: 2
+  a_embed_dim: 2
+  update_every_n_steps: 2000
+  use_full_buffer: False
+  train_on_n_samples: 1024
+  save_pretrain_embeddings: True
+  load_emb_path: None
+  # The embedding module can be pre-trained using the below config
+  pre_train:
+    is_on: True
+    batch_size: 512
+    train_iters: 100
+    samples: 3000
+    freeze_first_layer: False
+    fine_tune_iters: 50
+training:
+  num_epochs: 2
+  steps_per_epoch: 1500
+  buffer_size: 1500
+  gamma: 0.99
+  learning_rate_pi: 0.0003
+  learning_rate_v: 0.001
+  num_iters_pi: 3
+  num_iters_v: 6
+  lam: 0.97
+  max_ep_len: 151
+  save_freq: 100
+  target_kl: 0.01
+  clip_ratio: 0.2
+  batch_size: 512
+logger:
+  log_every_n_epochs: 1
+  output_dir: "experiments/PPO_test"
