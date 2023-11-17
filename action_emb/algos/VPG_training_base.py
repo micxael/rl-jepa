@@ -97,6 +97,7 @@ def pretrain_SAS_buffer(cnf, obs_dim, act_dim, cnf_train, ac, episode_num, env, 
         ac.pretrain_embedder_update(pre_train_buffer, logger)
         ac.embedder_pretrain = False
         print("------Pre-training of embedder done------")
+    
     if cnf["embed"]["save_pretrain_embeddings"]:
         ac.save_embeddings(logger)
         print("------Embeddings have been saved------")

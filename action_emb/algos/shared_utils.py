@@ -15,14 +15,13 @@ def config_env(cnf):
         env = gym.make(cnf["env"]["env_fn"])
     env.seed(cnf["seed"])
 
-    if isinstance(env.action_space, Box):
-        act_dim = env.action_space.shape[0]
-    elif isinstance(env.action_space, Discrete):
+    if isinstance(env.action_space, Discrete):
         act_dim = env.action_space.n
-    elif isinstance(env.action_space, Space):
+    elif isinstance(env.action_space, Box) or isinstance(env.action_space, Space):
         act_dim = env.action_space.shape[0]
     else:
         raise ValueError("Action Space Class is not known")
+    
     if isinstance(env.observation_space, Discrete):
         obs_dim = env.observation_space.n
     else:

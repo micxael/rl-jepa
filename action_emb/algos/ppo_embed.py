@@ -37,7 +37,7 @@ def PPO_embed(cnf):
     ac = ac_fn(env.observation_space, env.action_space, cnf)
 
     # Set up the experience buffer
-    cnf_train = cnf["training"]
+    cnf_train = cnf["training"] # TODO: redundant, remove this line?
     buffer = VPGFlexBuffer(
         obs_dim, act_dim, cnf_train["buffer_size"], cnf_train["gamma"], cnf_train["lam"]
     )
@@ -92,15 +92,15 @@ def PPO_embed(cnf):
                 logger.log_tabular("LossV", average_only=True)
                 logger.log_tabular("DeltaLossPi", average_only=True)
                 logger.log_tabular("DeltaLossV", average_only=True)
+
                 logger.log_tabular("KL", average_only=True)
                 logger.log_tabular("Entropy", average_only=True)
                 logger.log_tabular("ClipFrac", average_only=True)
+
                 logger.log_tabular("Time", time.time() - start_time)
                 logger.dump_tabular()
             # Save model
-            if (epoch % cnf_train["save_freq"] == 0) or (
-                epoch == cnf_train["num_epochs"] - 1
-            ):
+            if (epoch % cnf_train["save_freq"] == 0) or (epoch == cnf_train["num_epochs"] - 1):
                 logger.save_state({"env": env}, None)
 
         ac.save_embeddings(logger, "_done")
