@@ -5,6 +5,8 @@
 ```
 // Suggested using a conda environment
 
+conda create -n "xxxxx" python=3.10
+
 pip install -r requirements.txt
 
 python setup.py build && python setup.py install
