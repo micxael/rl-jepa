@@ -4,6 +4,7 @@ import sys
 from action_emb.algos.ppo_embed import run_PPO_embed
 from action_emb.utils.cnf_reader import read_config
 
+
 conf_file = sys.argv[1]
 cnf = read_config(conf_file)
 run_PPO_embed(cnf)
