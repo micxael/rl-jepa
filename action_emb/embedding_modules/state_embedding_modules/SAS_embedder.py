@@ -179,6 +179,7 @@ class SASEmbedder(nn.Module):
         a_embed_dim,
         state_space_type,
         action_space_type,
+        sequence_length=5
     ):
         super(SASEmbedder, self).__init__()
 
@@ -195,7 +196,9 @@ class SASEmbedder(nn.Module):
             self.act_dim = action_space.shape[0]
 
         # Set up the embedding layers
-        self.linear_state = nn.Linear(self.obs_dim, s_embed_dim, bias=False)
+        self.sequence_length = sequence_length
+        seq_obs_dim = self.obs_dim * self.sequence_length  # Adjusted for sequence length
+        self.linear_state = nn.Linear(seq_obs_dim, s_embed_dim, bias=False)
         self.act_state = nn.Tanh()
 
         self.linear_act = nn.Linear(self.act_dim, a_embed_dim, bias=False)

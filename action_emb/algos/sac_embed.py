@@ -82,20 +82,23 @@ def SAC_embed(cnf):
                 buffer,
                 cnf_train,
             )
-
             ac.update(buffer, logger)
-
             for j in range(cnf_train["num_test_episodes"]):
                 o, d, ep_ret_test, ep_len_test = test_env.reset(), False, 0, 0
+                obs_sequence = np.tile(o, (5, 1))
                 while not (d or (ep_len_test == cnf_train["max_ep_len"])):
+                    flattened_sequence = obs_sequence.flatten()
                     a, action_embed = ac.test_step(
-                        torch.as_tensor(o, dtype=torch.float32)
+                        torch.as_tensor(flattened_sequence, dtype=torch.float32)
                     )
-                    o, r, d, _ = test_env.step(a)
+                    next_o, r, d, _ = test_env.step(a)
                     ep_ret_test += r
                     ep_len_test += 1
-                logger.store(TestEpRet=ep_ret_test, TestEpLen=ep_len_test)
 
+                    obs_sequence = np.roll(obs_sequence, -1, axis=0)
+                    obs_sequence[-1] = next_o
+                    o = next_o
+                logger.store(TestEpRet=ep_ret_test, TestEpLen=ep_len_test)
             if epoch % cnf["logger"]["log_every_n_epochs"] == 0:
                 # Log info about epoch
                 logger.log_tabular("Epoch", epoch)
@@ -140,15 +143,19 @@ def run_sac_epoch(
     The agent may be updated in the process as per the configuration (update every n steps).
     """
     o, ep_ret, ep_len = env.reset(), 0, 0
+    obs_sequence = np.tile(o, (5, 1))
     for t in range(steps_per_epoch):
+        obs_sequence = np.roll(obs_sequence, -1, axis=0)
+        obs_sequence[-1] = o
+        flattened_sequence = obs_sequence.flatten()
         a, action_embed = ac.step(
-            torch.as_tensor(o, dtype=torch.float32), episode_num, buffer, logger
+            torch.as_tensor(flattened_sequence, dtype=torch.float32), episode_num, buffer, logger
         )
         next_o, r, d, _ = env.step(a)
         ep_ret += r
         ep_len += 1
         d = False if ep_len == cnf_train["max_ep_len"] else d
-        buffer.store(obs=o, act=a, act_emb=action_embed, rew=r, next_obs=next_o, done=d)
+        buffer.store(obs=flattened_sequence, act=a, act_emb=action_embed, rew=r, next_obs=next_o, done=d)
         o = next_o
 
         timeout = ep_len == cnf_train["max_ep_len"]

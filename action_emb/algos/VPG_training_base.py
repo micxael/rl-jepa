@@ -1,6 +1,7 @@
 import torch
 from action_emb.algos.vpg_utils.buffer import VPGFlexBuffer
 import os
+import numpy as np
 
 
 def run_epoch(
@@ -57,19 +58,24 @@ def run_epoch(
     return episode_num, total_env_interacts
 
 
-def run_pretrain_episode(episode_num, env, ac, logger, buffer, cnf_train):
+def run_pretrain_episode(episode_num, env, ac, logger, buffer, cnf_train, sequence_length=5):
     terminal = False
     timeout = False
     o, ep_ret, ep_len = env.reset(), 0, 0
+    obs_sequence = np.tile(o, (sequence_length, 1))
     while not terminal:
+        flattened_sequence = obs_sequence.flatten()
         a = ac.step(
-            torch.as_tensor(o, dtype=torch.float32), episode_num, buffer, logger
+            torch.as_tensor(flattened_sequence, dtype=torch.float32), episode_num, buffer, logger
         )
         next_o, r, d, _ = env.step(a)
         ep_ret += r
         ep_len += 1
 
-        buffer.store(o, a, r, next_o, d, 0, 0, 0)
+        obs_sequence = np.roll(obs_sequence, -1, axis=0)
+        obs_sequence[-1] = next_o
+
+        buffer.store(flattened_sequence, a, r, next_o, d, 0, 0, 0)
         o = next_o
 
         timeout = ep_len == cnf_train["max_ep_len"]

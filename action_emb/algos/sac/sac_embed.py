@@ -8,7 +8,6 @@ import action_emb.embedding_modules as embedding_modules
 from ..exploration_strategies import Random
 
 
-
 class SACActorCriticEmbed(BaseMLPActorCritic):
     def __init__(self, observation_space, action_space, cnf):
         super(SACActorCriticEmbed, self).__init__(observation_space, action_space, cnf)
@@ -171,7 +170,8 @@ class SACActorCriticEmbed(BaseMLPActorCritic):
 
         with torch.no_grad():
             o_emb = self.embedder.get_state_embedding(o)
-            o2_emb = self.embedder.get_state_embedding(o2)
+            new_o2_sequence = torch.cat((o[:, -4 * o2.shape[1]:], o2), dim=1) 
+            o2_emb = self.embedder.get_state_embedding(new_o2_sequence)
 
         q1 = self.q1(o_emb, a_emb)
         q2 = self.q2(o_emb, a_emb)

@@ -154,6 +154,7 @@ class BaseMLPActorCritic:
         return loss_q, q_info
 
     def update(self, buffer, logger):
+
         for i in range(self.cnf_train["update_iters"]):
             experiences_dict = buffer.sample(self.cnf_train["batch_size"])
             # First run one gradient descent step for Q1 and Q2
@@ -199,14 +200,15 @@ class BaseMLPActorCritic:
                     p_targ.data.add_((1 - self.polyak) * p.data)
 
 
-
 class SACReplayBuffer:
     """
     A simple FIFO experience replay buffer for 
     """
 
-    def __init__(self, obs_dim, act_dim, act_emb_dim, size):
-        self.obs_buf = np.zeros(combined_shape(size, obs_dim), dtype=np.float32)
+    def __init__(self, obs_dim, act_dim, act_emb_dim, size, sequence_length=5):
+        self.sequence_length = sequence_length
+        flattened_seq_dim = sequence_length * obs_dim
+        self.obs_buf = np.zeros(combined_shape(size, flattened_seq_dim), dtype=np.float32)
         self.obs2_buf = np.zeros(combined_shape(size, obs_dim), dtype=np.float32)
         self.act_buf = np.zeros(combined_shape(size, act_dim), dtype=np.float32)
         self.act_emb_buf = np.zeros(combined_shape(size, act_emb_dim), dtype=np.float32)
