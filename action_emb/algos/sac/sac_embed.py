@@ -1,11 +1,12 @@
-import torch
-import torch.nn as nn
 import itertools
 
-from .sac_base import SquashedGaussianMLPActor, MLPQFunction, BaseMLPActorCritic
-from ...utils.logger import EpochLogger
+import torch
+import torch.nn as nn
+
 import action_emb.embedding_modules as embedding_modules
+from .sac_base import SquashedGaussianMLPActor, MLPQFunction, BaseMLPActorCritic
 from ..exploration_strategies import Random
+from ...utils.logger import EpochLogger
 
 
 class SACActorCriticEmbed(BaseMLPActorCritic):
@@ -89,7 +90,7 @@ class SACActorCriticEmbed(BaseMLPActorCritic):
             q_params, lr=self.cnf_train["learning_rate_q"]
         )
 
-    def step(self, state, episode_num, buffer, logger: EpochLogger):
+    def step(self, state, buffer, logger: EpochLogger):
         # For pre-training, we collect samples following a random policy
         if len(state.shape) < 2:
             state = state.unsqueeze(0)
@@ -107,16 +108,21 @@ class SACActorCriticEmbed(BaseMLPActorCritic):
             with torch.no_grad():
                 action = self.embedder.map_to_action(
                     torch.as_tensor(action_embed, dtype=torch.float32)
-                ) 
+                )
             self.steps_taken += 1
             if isinstance(action, torch.Tensor):
                 action = action.numpy()
-            return action, action_embed
+            return action, action_embed, None, None
 
         with torch.no_grad():
-            s_embed = self.embedder.get_state_embedding(state)
-            action_embed, _ = self.pi(s_embed, False, False)
-            action = self.embedder.map_to_action(action_embed)
+            s_embed_mu = self.embedder.get_state_embedding(state, deterministic=True)
+            action_embed_mu, _ = self.pi(s_embed_mu, False, False)
+            action_mu = self.embedder.map_to_action(action_embed_mu)
+
+            s_embed_sampled = self.embedder.get_state_embedding(state, deterministic=False)
+            action_embed_sampled, _ = self.pi(s_embed_sampled, False, False)
+            action_sampled = self.embedder.map_to_action(action_embed_sampled)
+
             self.steps_taken += 1
         if (
             self.cnf_embed["continuous_learning"]
@@ -124,13 +130,15 @@ class SACActorCriticEmbed(BaseMLPActorCritic):
         ):
             self.embedder.update(buffer, logger, False)
         # For the Mujoco environments, we have a tensor as the action while the other envs are already numpy
-        if isinstance(action, torch.Tensor):
-            action = action.numpy()
-        return action, action_embed.numpy()
+        if isinstance(action_mu, torch.Tensor):
+            action_mu = action_mu.numpy()
+        if isinstance(action_sampled, torch.Tensor):
+            action_sampled = action_sampled.numpy()
+        return action_mu, action_embed_mu.numpy(), action_sampled, action_embed_sampled.numpy()
 
     def test_step(self, state):
         with torch.no_grad():
-            s_embed = self.embedder.get_state_embedding(state)
+            s_embed = self.embedder.get_state_embedding(state, deterministic=True)
             action_embed, _ = self.pi(s_embed, True, False)
             action = self.embedder.map_to_action(action_embed)
         # For the Mujoco environments, we have a tensor as the action while the other envs are already numpy
@@ -142,7 +150,7 @@ class SACActorCriticEmbed(BaseMLPActorCritic):
     def compute_loss_pi(self, experiences_dict):
         o = experiences_dict["obs"]
         with torch.no_grad():
-            o_emb = self.embedder.get_state_embedding(o)
+            o_emb = self.embedder.get_state_embedding(o, deterministic=True)
 
         pi, logp_pi = self.pi(o_emb)
         q1_pi = self.q1(o_emb, pi)
@@ -169,9 +177,9 @@ class SACActorCriticEmbed(BaseMLPActorCritic):
         )
 
         with torch.no_grad():
-            o_emb = self.embedder.get_state_embedding(o)
-            new_o2_sequence = torch.cat((o[:, -4 * o2.shape[1]:], o2), dim=1) 
-            o2_emb = self.embedder.get_state_embedding(new_o2_sequence)
+            o_emb = self.embedder.get_state_embedding(o, deterministic=True)
+            new_o2_sequence = torch.cat((o[:, -4 * o2.shape[1] :], o2), dim=1)
+            o2_emb = self.embedder.get_state_embedding(new_o2_sequence, deterministic=True)
 
         q1 = self.q1(o_emb, a_emb)
         q2 = self.q2(o_emb, a_emb)

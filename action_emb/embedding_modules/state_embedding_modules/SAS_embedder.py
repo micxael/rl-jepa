@@ -3,10 +3,12 @@ import torch
 import torch.nn as nn
 
 from gym.spaces import Box, Discrete
-from torch.utils import data as du
 from sklearn.metrics.pairwise import euclidean_distances
+from torch.utils import data as du
+
 from action_emb.environments.utils import Space
 from action_emb.utils.logger import EpochLogger
+from ..nn import GaussianMLP
 from ..SA_embedding_module_base import (
     SAEmbeddingModule,
     ContinuousMappingFunc,
@@ -111,9 +113,9 @@ class SASEmbeddingModule(SAEmbeddingModule):
         self.embedder.update_embeddings()
 
     def train(self, train_iters, train_dataloader, pre_train, logger: EpochLogger):
-        for epoch in range(train_iters):
+        for _ in range(train_iters):
             self.embedder.train()
-            for batch_idx, (s_x, a_x, y, a_raw) in enumerate(train_dataloader):
+            for _, (s_x, a_x, y, a_raw) in enumerate(train_dataloader):
 
                 self.optim.zero_grad()
                 pred = self.embedder(s_x, a_x)
@@ -143,7 +145,6 @@ class SASEmbeddingModule(SAEmbeddingModule):
     def prep_sas_actions(actions, act_dim):
         one_hot_acts = np.zeros((actions.shape[0], act_dim), dtype=np.float32)
         idx_1 = torch.from_numpy(np.arange(actions.shape[0]))
-        t_actions = actions
         actions = actions.long()
         one_hot_acts[idx_1, actions] = 1
         return one_hot_acts
@@ -198,14 +199,14 @@ class SASEmbedder(nn.Module):
         # Set up the embedding layers
         self.sequence_length = sequence_length
         seq_obs_dim = self.obs_dim * self.sequence_length  # Adjusted for sequence length
-        self.linear_state = nn.Linear(seq_obs_dim, s_embed_dim, bias=False)
+        self.linear_state = GaussianMLP(seq_obs_dim, s_embed_dim, [s_embed_dim, ] * 1)  # phi
         self.act_state = nn.Tanh()
 
-        self.linear_act = nn.Linear(self.act_dim, a_embed_dim, bias=False)
+        self.linear_act = nn.Linear(self.act_dim, a_embed_dim, bias=False)  # g
         self.act_action = nn.Tanh()
 
         # Set up the consecutive layers
-        self.transition = nn.Linear(s_embed_dim + a_embed_dim, self.obs_dim)
+        self.transition = nn.Linear(s_embed_dim + a_embed_dim, self.obs_dim)  # P
 
         # LogSoftmax works with NLL Loss directly (unlike Softmax)
         if self.state_space_type == "discrete":
@@ -216,7 +217,7 @@ class SASEmbedder(nn.Module):
         self.update_embeddings()
 
     def forward(self, state_x, act_x):
-        state_emb = self.act_state(self.linear_state(state_x))
+        state_emb = self.act_state(self.linear_state(state_x, deterministic=True))
         act_emb = self.act_action(self.linear_act(act_x))
         x = torch.cat([state_emb, act_emb], dim=-1)
         x = self.activation(self.transition(x))
@@ -237,8 +238,8 @@ class SASEmbedder(nn.Module):
         # Note this should only be used with discrete embeddings
         return self.state_embedding
 
-    def get_state_embedding(self, state):
-        return self.act_state(self.linear_state(state)).squeeze()
+    def get_state_embedding(self, state, deterministic=False):
+        return self.act_state(self.linear_state(state, deterministic)).squeeze()
 
     def get_action_embedding(self, action):
         if (

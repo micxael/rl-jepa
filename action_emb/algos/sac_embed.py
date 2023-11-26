@@ -1,14 +1,15 @@
+import random
+import time
+
 import numpy as np
 import torch
-import time
-import random
-from . import sac as sac
 
-from ..environments.utils import Space
-from .shared_utils import config_env
-from ..utils.logger import EpochLogger
-from .VPG_training_base import pretrain_SAS_buffer
+from . import sac as sac
 from .sac.sac_base import SACReplayBuffer
+from .shared_utils import config_env
+from .VPG_training_base import pretrain_SAS_buffer
+from ..environments.utils import Space
+from ..utils.logger import EpochLogger
 
 
 def SAC_embed(cnf):
@@ -51,7 +52,6 @@ def SAC_embed(cnf):
     logger.setup_pytorch_saver(ac)
 
     start_time = time.time()
-    state, ep_ret, ep_len = env.reset(), 0, 0
     episode_num = 0
     total_env_interacts = 0
     ep_ret_all = []
@@ -70,7 +70,6 @@ def SAC_embed(cnf):
             raise ValueError("Unknown embedding module given!")
 
         for epoch in range(cnf_train["num_epochs"]):
-            terminal = False
             episode_num, total_env_interacts = run_sac_epoch(
                 episode_num,
                 total_env_interacts,
@@ -148,15 +147,36 @@ def run_sac_epoch(
         obs_sequence = np.roll(obs_sequence, -1, axis=0)
         obs_sequence[-1] = o
         flattened_sequence = obs_sequence.flatten()
-        a, action_embed = ac.step(
-            torch.as_tensor(flattened_sequence, dtype=torch.float32), episode_num, buffer, logger
+
+        action_mu, action_embed_mu, action_sampled, action_embed_sampled = ac.step(
+            torch.as_tensor(flattened_sequence, dtype=torch.float32),
+            buffer,
+            logger,
         )
-        next_o, r, d, _ = env.step(a)
-        ep_ret += r
+        next_o_mu, r_mu, d_mu, _ = env.step(action_mu)
+        ep_ret += r_mu
         ep_len += 1
-        d = False if ep_len == cnf_train["max_ep_len"] else d
-        buffer.store(obs=flattened_sequence, act=a, act_emb=action_embed, rew=r, next_obs=next_o, done=d)
-        o = next_o
+        d = False if ep_len == cnf_train["max_ep_len"] else d_mu
+        buffer.store(
+            obs=flattened_sequence,
+            act=action_mu,
+            act_emb=action_embed_mu,
+            rew=r_mu,
+            next_obs=next_o_mu,
+            done=d_mu,
+        )
+        o = next_o_mu
+
+        if action_sampled is not None and action_embed_sampled is not None:
+            next_o_sampled, r_sampled, d_sampled, _ = env.step(action_sampled)
+            buffer.store(
+                obs=flattened_sequence,
+                act=action_sampled,
+                act_emb=action_embed_sampled,
+                rew=r_sampled,
+                next_obs=next_o_sampled,
+                done=d_sampled,
+            )
 
         timeout = ep_len == cnf_train["max_ep_len"]
         terminal = d or timeout
