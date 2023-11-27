@@ -67,8 +67,8 @@ class SAEmbeddingModule:
     def get_action_embedding(self, action):
         return self.embedder.get_action_embedding(action)
 
-    def get_state_embedding(self, state):
-        return self.embedder.get_state_embedding(state)
+    def get_state_embedding(self, state, deterministic=False):
+        return self.embedder.get_state_embedding(state, deterministic)
 
 
 class ContinuousMappingFunc(nn.Module):

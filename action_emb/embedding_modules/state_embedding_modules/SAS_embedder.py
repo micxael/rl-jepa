@@ -199,7 +199,7 @@ class SASEmbedder(nn.Module):
         # Set up the embedding layers
         self.sequence_length = sequence_length
         seq_obs_dim = self.obs_dim * self.sequence_length  # Adjusted for sequence length
-        self.linear_state = GaussianMLP(seq_obs_dim, s_embed_dim, [s_embed_dim, ] * 1)  # phi
+        self.linear_state = GaussianMLP(seq_obs_dim, s_embed_dim)  # phi
         self.act_state = nn.Tanh()
 
         self.linear_act = nn.Linear(self.act_dim, a_embed_dim, bias=False)  # g
@@ -217,7 +217,7 @@ class SASEmbedder(nn.Module):
         self.update_embeddings()
 
     def forward(self, state_x, act_x):
-        state_emb = self.act_state(self.linear_state(state_x, deterministic=True))
+        state_emb = self.act_state(self.linear_state(state_x, deterministic=False))
         act_emb = self.act_action(self.linear_act(act_x))
         x = torch.cat([state_emb, act_emb], dim=-1)
         x = self.activation(self.transition(x))
@@ -225,7 +225,7 @@ class SASEmbedder(nn.Module):
 
     def update_embeddings(self):
         # Note: This is only useful for indexing with discrete spaces
-        self.state_embedding = self.act_state(self.linear_state.weight.data)
+        self.state_embedding = self.act_state(self.linear_state.mu_layer.weight.data)
         self.act_embedding = torch.transpose(
             self.act_action(self.linear_act.weight.data), 0, 1
         )

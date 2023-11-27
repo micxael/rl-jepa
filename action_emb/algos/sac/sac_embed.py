@@ -90,7 +90,7 @@ class SACActorCriticEmbed(BaseMLPActorCritic):
             q_params, lr=self.cnf_train["learning_rate_q"]
         )
 
-    def step(self, state, buffer, logger: EpochLogger):
+    def step(self, state, episode_num, buffer, logger: EpochLogger):
         # For pre-training, we collect samples following a random policy
         if len(state.shape) < 2:
             state = state.unsqueeze(0)

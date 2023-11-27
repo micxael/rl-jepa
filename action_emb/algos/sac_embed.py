@@ -150,6 +150,7 @@ def run_sac_epoch(
 
         action_mu, action_embed_mu, action_sampled, action_embed_sampled = ac.step(
             torch.as_tensor(flattened_sequence, dtype=torch.float32),
+            episode_num,
             buffer,
             logger,
         )
