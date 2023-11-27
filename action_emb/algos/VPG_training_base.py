@@ -3,7 +3,7 @@ from action_emb.algos.vpg_utils.buffer import VPGFlexBuffer
 import os
 import numpy as np
 
-def mask_observation(obs, mask_percent=0.2):
+def mask_observation(obs, mask_percent):
     num_elements = obs.numel()
     num_elements_to_mask = int(num_elements * mask_percent)
     mask_indices = torch.randperm(num_elements)[:num_elements_to_mask]
@@ -66,14 +66,16 @@ def run_epoch(
     return episode_num, total_env_interacts
 
 
-def run_pretrain_episode(episode_num, env, ac, logger, buffer, cnf_train, sequence_length=5):
+def run_pretrain_episode(episode_num, env, ac, logger, buffer, cnf_train):
     terminal = False
     timeout = False
+    sequence_length = int(cnf_train["num_obs_samples"])
+    masking_percentage = float(cnf_train["masking_percentage"])
     o, ep_ret, ep_len = env.reset(), 0, 0
     obs_sequence = np.tile(o, (sequence_length, 1))
     while not terminal:
         for i in range(obs_sequence.shape[0]):
-            obs_sequence[i] = mask_observation(torch.from_numpy(obs_sequence[i])).numpy()
+            obs_sequence[i] = mask_observation(torch.from_numpy(obs_sequence[i]),masking_percentage).numpy()
         flattened_sequence = obs_sequence.flatten()
         a = ac.step(
             torch.as_tensor(flattened_sequence, dtype=torch.float32), episode_num, buffer, logger

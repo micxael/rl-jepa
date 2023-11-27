@@ -12,7 +12,7 @@ from ..environments.utils import Space
 from ..utils.logger import EpochLogger
 
 
-def mask_observation(obs, mask_percent=0.2):
+def mask_observation(obs, mask_percent):
     num_elements = obs.numel()
     num_elements_to_mask = int(num_elements * mask_percent)
     mask_indices = torch.randperm(num_elements)[:num_elements_to_mask]
@@ -38,6 +38,9 @@ def SAC_embed(cnf):
     env, obs_dim, act_dim = config_env(cnf)
     test_env, obs_dim, act_dim = config_env(cnf)
 
+    sequence_length = int(cnf["training"]["num_obs_samples"])
+    masking_percentage = int(cnf["training"]["masking_percentage"])
+
     # If we use custom Spaces, we want .n instead of .shape
     if isinstance(env.action_space, Space):
         act_dim = env.action_space.n
@@ -56,6 +59,7 @@ def SAC_embed(cnf):
         act_dim=act_dim,
         act_emb_dim=cnf["embed"]["a_embed_dim"],
         size=cnf_train["buffer_size"],
+        sequence_length = sequence_length,
     )
 
     # Set up model saving
@@ -90,14 +94,16 @@ def SAC_embed(cnf):
                 logger,
                 buffer,
                 cnf_train,
+                sequence_length,
+                masking_percentage,
             )
             ac.update(buffer, logger)
             for j in range(cnf_train["num_test_episodes"]):
                 o, d, ep_ret_test, ep_len_test = test_env.reset(), False, 0, 0
-                obs_sequence = np.tile(o, (5, 1))
+                obs_sequence = np.tile(o, (sequence_length, 1))
                 while not (d or (ep_len_test == cnf_train["max_ep_len"])):
                     for i in range(obs_sequence.shape[0]):
-                        obs_sequence[i] = mask_observation(torch.from_numpy(obs_sequence[i])).numpy()
+                        obs_sequence[i] = mask_observation(torch.from_numpy(obs_sequence[i]),masking_percentage).numpy()
                     flattened_sequence = obs_sequence.flatten()
                     a, action_embed = ac.test_step(
                         torch.as_tensor(flattened_sequence, dtype=torch.float32)
@@ -148,19 +154,22 @@ def run_sac_epoch(
     logger,
     buffer,
     cnf_train,
+    sequence_length,
+    masking_percentage,
 ):
     """
     Runs an episode in the environment and stores the data.
     The agent may be updated in the process as per the configuration (update every n steps).
     """
+    
     o, ep_ret, ep_len = env.reset(), 0, 0
-    obs_sequence = np.tile(o, (5, 1))
+    obs_sequence = np.tile(o, (sequence_length, 1))
     for t in range(steps_per_epoch):
             
         obs_sequence = np.roll(obs_sequence, -1, axis=0)
         obs_sequence[-1] = o
         for i in range(obs_sequence.shape[0]):
-            obs_sequence[i] = mask_observation(torch.from_numpy(obs_sequence[i])).numpy()
+            obs_sequence[i] = mask_observation(torch.from_numpy(obs_sequence[i]),masking_percentage).numpy()
             
         flattened_sequence = obs_sequence.flatten()
 

@@ -8,7 +8,7 @@ from .sac_base import SquashedGaussianMLPActor, MLPQFunction, BaseMLPActorCritic
 from ..exploration_strategies import Random
 from ...utils.logger import EpochLogger
 
-def mask_observation(obs_tensor, mask_percent=0.2):
+def mask_observation(obs_tensor, mask_percent):
     flattened_obs = obs_tensor.view(-1)
     num_elements_to_mask = int(flattened_obs.numel() * mask_percent)
     mask = torch.randperm(flattened_obs.numel())[:num_elements_to_mask]
@@ -27,6 +27,8 @@ class SACActorCriticEmbed(BaseMLPActorCritic):
             self.s_embed_dim = cnf["embed"]["s_embed_dim"]
         self.a_embed_dim = cnf["embed"]["a_embed_dim"]
         self.cnf_embed = cnf["embed"]
+        self.sequence_length = int(cnf["training"]["num_obs_samples"])
+        self.masking_percentage = int(cnf["training"]["masking_percentage"])
 
         self.act_limit = self.cnf["training"]["act_limit"]
 
@@ -179,7 +181,7 @@ class SACActorCriticEmbed(BaseMLPActorCritic):
 
         with torch.no_grad():
             o_emb = self.embedder.get_state_embedding(o)
-            new_o2_sequence = torch.cat((o[:, -4 * o2.shape[1] :], mask_observation(o2)), dim=1)
+            new_o2_sequence = torch.cat((o[:, -1 * int(o.shape[1]/o2.shape[1] - 1) * o2.shape[1] :], mask_observation(o2,self.masking_percentage)), dim=1)
             o2_emb = self.embedder.get_state_embedding(new_o2_sequence)
 
         q1 = self.q1(o_emb, a_emb)

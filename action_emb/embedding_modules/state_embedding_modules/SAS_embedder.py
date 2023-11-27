@@ -26,6 +26,7 @@ class SASEmbeddingModule(SAEmbeddingModule):
             cnf["embed"]["a_embed_dim"],
             cnf["env"]["state_space_type"],
             cnf["env"]["action_space_type"],
+            cnf["training"]["num_obs_samples"],
         )
         self.optim = torch.optim.Adam(
             self.embedder.parameters(),
@@ -188,7 +189,7 @@ class SASEmbedder(nn.Module):
         a_embed_dim,
         state_space_type,
         action_space_type,
-        sequence_length=5
+        sequence_length,
     ):
         super(SASEmbedder, self).__init__()
 

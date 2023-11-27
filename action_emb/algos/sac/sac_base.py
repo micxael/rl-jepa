@@ -205,7 +205,7 @@ class SACReplayBuffer:
     A simple FIFO experience replay buffer for 
     """
 
-    def __init__(self, obs_dim, act_dim, act_emb_dim, size, sequence_length=5):
+    def __init__(self, obs_dim, act_dim, act_emb_dim, size, sequence_length):
         self.sequence_length = sequence_length
         flattened_seq_dim = sequence_length * obs_dim
         self.obs_buf = np.zeros(combined_shape(size, flattened_seq_dim), dtype=np.float32)
