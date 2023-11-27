@@ -12,6 +12,16 @@ from ..environments.utils import Space
 from ..utils.logger import EpochLogger
 
 
+def mask_observation(obs, mask_percent=0.2):
+    num_elements = obs.numel()
+    num_elements_to_mask = int(num_elements * mask_percent)
+    mask_indices = torch.randperm(num_elements)[:num_elements_to_mask]
+    masked_obs = obs.clone().view(-1)  
+    masked_obs[mask_indices] = 0 
+    return masked_obs.view_as(obs)
+
+
+
 def SAC_embed(cnf):
     if "threads" in cnf.keys():
         torch.set_num_threads(cnf["threads"])
@@ -86,6 +96,8 @@ def SAC_embed(cnf):
                 o, d, ep_ret_test, ep_len_test = test_env.reset(), False, 0, 0
                 obs_sequence = np.tile(o, (5, 1))
                 while not (d or (ep_len_test == cnf_train["max_ep_len"])):
+                    for i in range(obs_sequence.shape[0]):
+                        obs_sequence[i] = mask_observation(torch.from_numpy(obs_sequence[i])).numpy()
                     flattened_sequence = obs_sequence.flatten()
                     a, action_embed = ac.test_step(
                         torch.as_tensor(flattened_sequence, dtype=torch.float32)
@@ -144,8 +156,12 @@ def run_sac_epoch(
     o, ep_ret, ep_len = env.reset(), 0, 0
     obs_sequence = np.tile(o, (5, 1))
     for t in range(steps_per_epoch):
+            
         obs_sequence = np.roll(obs_sequence, -1, axis=0)
         obs_sequence[-1] = o
+        for i in range(obs_sequence.shape[0]):
+            obs_sequence[i] = mask_observation(torch.from_numpy(obs_sequence[i])).numpy()
+            
         flattened_sequence = obs_sequence.flatten()
 
         action_mu, action_embed_mu, action_sampled, action_embed_sampled = ac.step(
