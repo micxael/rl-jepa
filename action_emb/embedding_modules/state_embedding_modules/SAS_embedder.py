@@ -73,6 +73,12 @@ class SASEmbeddingModule(SAEmbeddingModule):
         loss = self.loss_fn(pred, y)
         return loss
 
+    def kl_loss(self, o):
+        with torch.no_grad():
+            mu, log_var = self.embedder.get_state_embedding_mu_logvar(o)
+        loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+        return loss
+
     def update(self, buffer, logger: EpochLogger, pre_train=False):
         if self.cnf["embed"]["use_full_buffer"] or pre_train:
             experiences_dict = buffer.get_data()
@@ -107,19 +113,21 @@ class SASEmbeddingModule(SAEmbeddingModule):
             batch_size = self.cnf["embed"]["batch_size"]
             train_iters = self.cnf["embed"]["train_iters"]
         train_dataloader = du.DataLoader(data, batch_size=batch_size)
-        self.train(train_iters, train_dataloader, pre_train, logger)
+
+        kl_lambda = self.cnf["training"]["kl_lambda"]
+        self.train(train_iters, train_dataloader, kl_lambda, pre_train, logger)
 
         # This stores the updated weight tables in a separate member
         self.embedder.update_embeddings()
 
-    def train(self, train_iters, train_dataloader, pre_train, logger: EpochLogger):
+    def train(self, train_iters, train_dataloader, kl_lambda, pre_train, logger: EpochLogger):
         for _ in range(train_iters):
             self.embedder.train()
             for _, (s_x, a_x, y, a_raw) in enumerate(train_dataloader):
 
                 self.optim.zero_grad()
                 pred = self.embedder(s_x, a_x)
-                loss = self.loss(pred, y)
+                loss = self.loss(pred, y) + kl_lambda * self.kl_loss(s_x)
                 loss.backward()
                 self.optim.step()
                 if (
@@ -217,7 +225,7 @@ class SASEmbedder(nn.Module):
         self.update_embeddings()
 
     def forward(self, state_x, act_x):
-        state_emb = self.act_state(self.linear_state(state_x, deterministic=False))
+        state_emb = self.act_state(self.linear_state(state_x))
         act_emb = self.act_action(self.linear_act(act_x))
         x = torch.cat([state_emb, act_emb], dim=-1)
         x = self.activation(self.transition(x))
@@ -225,7 +233,7 @@ class SASEmbedder(nn.Module):
 
     def update_embeddings(self):
         # Note: This is only useful for indexing with discrete spaces
-        self.state_embedding = self.act_state(self.linear_state.mu_layer.weight.data)
+        self.state_embedding = self.act_state(self.linear_state.mu.weight.data)
         self.act_embedding = torch.transpose(
             self.act_action(self.linear_act.weight.data), 0, 1
         )
@@ -240,6 +248,9 @@ class SASEmbedder(nn.Module):
 
     def get_state_embedding(self, state, deterministic=False):
         return self.act_state(self.linear_state(state, deterministic)).squeeze()
+
+    def get_state_embedding_mu_logvar(self, state):
+        return self.linear_state(state, return_mu_log_var=True)
 
     def get_action_embedding(self, action):
         if (

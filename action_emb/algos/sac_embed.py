@@ -148,36 +148,25 @@ def run_sac_epoch(
         obs_sequence[-1] = o
         flattened_sequence = obs_sequence.flatten()
 
-        action_mu, action_embed_mu, action_sampled, action_embed_sampled = ac.step(
+        action, action_embed = ac.step(
             torch.as_tensor(flattened_sequence, dtype=torch.float32),
             episode_num,
             buffer,
             logger,
         )
-        next_o_mu, r_mu, d_mu, _ = env.step(action_mu)
-        ep_ret += r_mu
+        next_o, r, d, _ = env.step(action)
+        ep_ret += r
         ep_len += 1
-        d = False if ep_len == cnf_train["max_ep_len"] else d_mu
+        d = False if ep_len == cnf_train["max_ep_len"] else d
         buffer.store(
             obs=flattened_sequence,
-            act=action_mu,
-            act_emb=action_embed_mu,
-            rew=r_mu,
-            next_obs=next_o_mu,
-            done=d_mu,
+            act=action,
+            act_emb=action_embed,
+            rew=r,
+            next_obs=next_o,
+            done=d,
         )
-        o = next_o_mu
-
-        if action_sampled is not None and action_embed_sampled is not None:
-            next_o_sampled, r_sampled, d_sampled, _ = env.step(action_sampled)
-            buffer.store(
-                obs=flattened_sequence,
-                act=action_sampled,
-                act_emb=action_embed_sampled,
-                rew=r_sampled,
-                next_obs=next_o_sampled,
-                done=d_sampled,
-            )
+        o = next_o
 
         timeout = ep_len == cnf_train["max_ep_len"]
         terminal = d or timeout
