@@ -38,20 +38,24 @@ class SquashedGaussianMLPActor(nn.Module):
         self.net = PGMLP([obs_dim] + list(hidden_sizes), activation, activation)
         # Layers for mu and std dev, which share the initial few layers or use std
         # dev as an initializable parameter (comment out respectively)
-        log_std = std_dev * np.ones(act_dim, dtype=np.float32)
-        self.std = torch.nn.Parameter(torch.as_tensor(log_std))
+        if std_dev is None:
+            self.log_std_layer = nn.Linear(hidden_sizes[-1], act_dim)
+        else:
+            log_std = std_dev * np.ones(act_dim, dtype=np.float32)
+            self.std = torch.nn.Parameter(torch.as_tensor(log_std))
 
         self.mu_layer = nn.Linear(hidden_sizes[-1], act_dim)
-        # self.log_std_layer = nn.Linear(hidden_sizes[-1], act_dim)
         self.act_limit = act_limit
 
     def forward(self, obs, deterministic=False, with_logprob=True):
         net_out = self.net(obs)
         mu = self.mu_layer(net_out)
-        # log_std = self.log_std_layer(net_out)
-        # log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
-        # std = torch.exp(log_std)
-        std = self.std
+        if hasattr(self, "log_std_layer"):
+            log_std = self.log_std_layer(net_out)
+            log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
+            std = torch.exp(log_std)
+        else:
+            std = self.std
 
         # Pre-squash distribution and sample
         pi_distribution = Normal(mu, std)
