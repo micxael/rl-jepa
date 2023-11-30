@@ -73,7 +73,8 @@ training:
   act_limit: 1.1
   random_exp_steps: 100
   batch_size: 512
-  kl_lambda: 1
+  kl_lambda_pi: 1
+  kl_lambda_phi: 1
   num_obs_samples: 5
   masking_percentage: 0.2
 logger:

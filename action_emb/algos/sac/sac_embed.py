@@ -40,6 +40,7 @@ class SACActorCriticEmbed(BaseMLPActorCritic):
             self.act_limit,
             self.cnf_model["config"]["std_dev_actor"],
         )
+        self.kl_lambda_pi = self.cnf["training"]["kl_lambda_pi"]
 
         # Set up the actor and q function (always continuous)
         self.q1 = MLPQFunction(
@@ -155,13 +156,15 @@ class SACActorCriticEmbed(BaseMLPActorCritic):
         with torch.no_grad():
             o_emb = self.embedder.get_state_embedding(o)
 
-        pi, logp_pi = self.pi(o_emb)
+        pi, logp_pi, mu, log_var = self.pi(o_emb, return_mu_log_var=True)
         q1_pi = self.q1(o_emb, pi)
         q2_pi = self.q2(o_emb, pi)
         q_pi = torch.min(q1_pi, q2_pi)
 
         # Entropy-regularized policy loss
         loss_pi = (self.alpha * logp_pi - q_pi).mean()
+        kl_loss = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+        loss_pi = loss_pi + self.kl_lambda_pi * kl_loss
 
         # Useful info for logging
         pi_info = dict(LogPi=logp_pi.detach().numpy())

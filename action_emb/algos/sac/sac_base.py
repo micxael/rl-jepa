@@ -47,7 +47,7 @@ class SquashedGaussianMLPActor(nn.Module):
         self.mu_layer = nn.Linear(hidden_sizes[-1], act_dim)
         self.act_limit = act_limit
 
-    def forward(self, obs, deterministic=False, with_logprob=True):
+    def forward(self, obs, deterministic=False, with_logprob=True, return_mu_log_var=False):
         net_out = self.net(obs)
         mu = self.mu_layer(net_out)
         if hasattr(self, "log_std_layer"):
@@ -75,6 +75,9 @@ class SquashedGaussianMLPActor(nn.Module):
         pi_action = torch.tanh(pi_action)
         pi_action = self.act_limit * pi_action
 
+        if return_mu_log_var:
+            log_var = torch.log(std.pow(2))
+            return pi_action, logp_pi, mu, log_var
         return pi_action, logp_pi
 
 

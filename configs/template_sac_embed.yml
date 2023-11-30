@@ -73,7 +73,6 @@ training:
   act_limit: 1.1
   random_exp_steps: 100
   batch_size: 512
-  kl_lambda: 1
 logger:
   log_every_n_epochs: 1
   output_dir: "experiments/sac_test"

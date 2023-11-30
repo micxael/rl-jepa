@@ -70,6 +70,8 @@ class SASEmbeddingModule(SAEmbeddingModule):
         else:
             raise ValueError("Action space type for mapping func unknown.")
 
+        self.kl_lambda_phi = self.cnf["training"]["kl_lambda_phi"]
+
     def loss(self, pred, y):
         loss = self.loss_fn(pred, y)
         return loss
@@ -115,20 +117,19 @@ class SASEmbeddingModule(SAEmbeddingModule):
             train_iters = self.cnf["embed"]["train_iters"]
         train_dataloader = du.DataLoader(data, batch_size=batch_size)
 
-        kl_lambda = self.cnf["training"]["kl_lambda"]
-        self.train(train_iters, train_dataloader, kl_lambda, pre_train, logger)
+        self.train(train_iters, train_dataloader, pre_train, logger)
 
         # This stores the updated weight tables in a separate member
         self.embedder.update_embeddings()
 
-    def train(self, train_iters, train_dataloader, kl_lambda, pre_train, logger: EpochLogger):
+    def train(self, train_iters, train_dataloader, pre_train, logger: EpochLogger):
         for _ in range(train_iters):
             self.embedder.train()
             for _, (s_x, a_x, y, a_raw) in enumerate(train_dataloader):
 
                 self.optim.zero_grad()
                 pred = self.embedder(s_x, a_x)
-                loss = self.loss(pred, y) + kl_lambda * self.kl_loss(s_x)
+                loss = self.loss(pred, y) + self.kl_lambda_phi * self.kl_loss(s_x)
                 loss.backward()
                 self.optim.step()
                 if (
